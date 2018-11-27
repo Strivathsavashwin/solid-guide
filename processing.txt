@@ -1,0 +1,80 @@
+import cv2,time,os,math
+import numpy as np
+import cv2 as cv
+from matplotlib import pyplot as plt
+cap =cv2.VideoCapture(1);#set it 0 while using odroid
+a = i = 0;
+cap.set(cv2.CAP_PROP_BRIGHTNESS,3);
+cap.set(cv2.CAP_PROP_AUTO_EXPOSURE,0);
+cap.set(cv2.CAP_PROP_AUTOFOCUS,0);
+cap.set(cv2.CAP_PROP_FOCUS,13);
+cap.set(cv2.CAP_PROP_EXPOSURE,-9);
+cap.set(cv2.CAP_PROP_SATURATION,1);
+cap.set(cv2.CAP_PROP_GAIN,10);
+cap.set(cv2.CAP_PROP_SHARPNESS,10);
+cap.set(cv2.CAP_PROP_CONTRAST,16);
+cap.set(cv2.CAP_PROP_FRAME_WIDTH,640);
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT,480);
+width = cap.get(cv2.CAP_PROP_FRAME_WIDTH);
+height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT);
+while 1:
+    a = a + 1
+    check,frame = cap.read();
+    cv2.imshow("Live video feed",frame)
+    gray1 = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY);
+    kernel = np.array([[1/16,-2/16,-1/16],[-2/16,12/16,-2/16],[-1/16,-2/16,-1/16]]);
+    gray3 = cv2.filter2D(gray1,-1,kernel);
+    gray4 = gray3 - gray1;
+    gray = (255 - gray4);
+    median = cv2.medianBlur(gray,5);
+    img = (255 - median);
+    Size = img.size;
+    hist,bins = np.histogram(img.ravel(),256,[0,256])#hist calc- np array or hist fn
+    pdf = hist/Size;
+    pdfmin = min(pdf);
+    pdfmax = max(pdf);
+    meanar = cv2.mean(median);
+    Mean = math.floor(meanar[0]);
+    for i in range(0,Mean+1):
+        alpha = 1.3;
+        pdfw = pdfmax * (((pdf - pdfmin)/(pdfmax - pdfmin))**alpha);
+        cdfw = np.cumsum(pdfw)/np.sum(pdfw) ;
+    for i in range(Mean +1,256):
+        alpha = 0.5;
+        pdfw = pdfmax *(((pdf - pdfmin)/(pdfmax - pdfmin))**alpha);
+        cdfw = np.cumsum(pdfw)/np.sum(pdfw) * 1.0;   
+    gamma = 1.0 - cdfw;
+    lmax = 250;
+    img2= np.float64(median);
+    l1 = img2/lmax;
+    for i in range(256):
+        for j in range(256):
+            median[i,j] = lmax *(l1[i,j]**gamma[(median[i,j])]);
+    c = (255 - median);
+    clahe = cv2.createCLAHE(clipLimit = 2.0)
+    cl1 = clahe.apply(c);
+    cl2 = clahe.apply(cl1);
+    cl3 = (255 - cl2);
+    cv2.imshow('cl2',cl2);
+    kernel1 = (np.array([[-1,-1,-1],[-1,9,-1],[-1,-1,-1]])/3);
+    imgs = cv2.filter2D(cl2,-1,kernel1);
+    imgf =  (imgs - cl2);
+    kernel2 = np.array([[1,2,1],[2,4,2],[1,2,1]])/16;
+    imgfno = cv2.filter2D(imgf,-1,kernel2);
+    cv2.imshow('noise red',(255 - imgfno));
+    cv2.imshow('inv',imgfno);
+    kernelm = cv2.getStructuringElement(cv2.MORPH_RECT,(5,5));#morphology operation
+    tophat = cv2.morphologyEx((255 - imgfno),cv2.MORPH_TOPHAT,kernelm);
+    blackhat = cv2.morphologyEx((255 - imgfno),cv2.MORPH_BLACKHAT,kernelm);
+    imgm = (tophat - blackhat) + (255 - imgfno);
+    cv2.imshow('imgm',imgm);
+    #kernel3 = np.array([[0,40,0
+    key = cv2.waitKey(1)
+    if key == ord('c'):
+        cv2.imshow('img',blurn);
+        path = 'C:\\Users\\Strivathsav Ashwin\\Desktop\\Project folder\\images'
+        cv2.imwrite(ospath.join(path,'imgcam.jpg'),(255 - imgfno));
+
+    if key == ord('b'):
+        break
+cap.release()
